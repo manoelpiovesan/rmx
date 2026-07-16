@@ -27,6 +27,8 @@ struct XPadConfig {
 
     // UI
     float masterVolume{1.0f};
+    float pitchSemitones{0.0f};
+    float filterAmount{0.0f};
 
     // RMX-style global controls
     std::string selectedSamplePath{};
@@ -42,3 +44,4 @@ struct XPadConfig {
 };
 
 } // namespace xpad::config
+

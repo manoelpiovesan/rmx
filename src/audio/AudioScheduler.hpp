@@ -26,14 +26,13 @@ double divisionToBeats(QuantizeDivision div) noexcept;
 
 struct Voice {
     std::shared_ptr<xpad::samples::Sample> sample;
-    std::uint64_t readPosition{0};
+    double readPosition{0.0};
     float volume{1.0f};
     bool active{false};
     bool loop{false};
     double scheduledAtBeat{0.0};
     int padIndex{-1};
 
-    // RMX-style roll looping window (from sample start)
     bool useLoopSlice{false};
     QuantizeDivision loopDivision{QuantizeDivision::Quarter};
 };
@@ -59,16 +58,22 @@ public:
                      QuantizeDivision quantization,
                      float volume = 1.0f);
 
-    // Start a continuous roll loop for the pad with the selected division.
     void startRoll(int padIndex,
                    double currentBeat,
                    QuantizeDivision rollDivision,
                    float volume = 1.0f);
 
-    // Stop the active roll/loop for this pad.
     void stopRoll(int padIndex);
-
     void releasePad(int padIndex);
+
+    // Realtime controls applied inside audio callback.
+    void setMasterVolume(float value) noexcept;
+    void setPitchSemitones(float semitones) noexcept;
+    void setFilterAmount(float amount) noexcept;
+
+    [[nodiscard]] float masterVolume() const noexcept;
+    [[nodiscard]] float pitchSemitones() const noexcept;
+    [[nodiscard]] float filterAmount() const noexcept;
 
     void processAudio(float* outputBuffer,
                       std::uint32_t frameCount,
@@ -100,6 +105,13 @@ private:
     std::array<std::atomic<bool>, xpad::samples::kPadCount> padActive_{};
     std::array<std::atomic<bool>, xpad::samples::kPadCount> padScheduled_{};
 
+    std::atomic<float> masterVolume_{1.0f};
+    std::atomic<float> pitchSemitones_{0.0f};
+    std::atomic<float> pitchRatio_{1.0f};
+    std::atomic<float> filterAmount_{0.0f};
+
+    double lpfStateL_{0.0};
+    double lpfStateR_{0.0};
     double lastProcessedBeat_{-1.0};
 };
 

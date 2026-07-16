@@ -78,6 +78,9 @@ void App::initSubsystems() {
     loadBank();
 
     scheduler_ = std::make_shared<xpad::audio::AudioScheduler>(bank_);
+    scheduler_->setMasterVolume(xCfg_.masterVolume);
+    scheduler_->setPitchSemitones(xCfg_.pitchSemitones);
+    scheduler_->setFilterAmount(xCfg_.filterAmount);
 
     audioEngine_ = std::make_shared<xpad::audio::AudioEngine>(
         xpad::audio::AudioConfig{
@@ -204,10 +207,9 @@ void App::onMidiMessage(const xpad::midi::MidiMessage& msg) {
 void App::onTrigger(float volume) {
     if (!scheduler_) return;
 
-    // If no roll is active yet, default to 1/4 (button index 1)
-    if (activeRollButton_ < 0) {
-        activeRollButton_ = std::clamp(xCfg_.globalQuantization, 0, 4);
-        if (activeRollButton_ < 0 || activeRollButton_ > 4) activeRollButton_ = 1;
+    // If no roll button is active, do nothing.
+    if (activeRollButton_ < 0 || activeRollButton_ > 4) {
+        return;
     }
 
     selectRoll(activeRollButton_, volume);
@@ -215,14 +217,21 @@ void App::onTrigger(float volume) {
 
 void App::selectRoll(int rollButtonIndex, float volume) {
     if (!scheduler_) return;
-    if (rollButtonIndex < 0 || rollButtonIndex > 4) return;
+
+    // Deselect behavior: clicking active button again turns roll off.
+    if (rollButtonIndex < 0) {
+        scheduler_->stopRoll(0);
+        activeRollButton_ = -1;
+        xCfg_.globalQuantization = -1;
+        return;
+    }
+
+    if (rollButtonIndex > 4) return;
 
     const auto snap = linkManager_->snapshot();
     const auto div = toQuantDivisionFromRulerIndex(rollButtonIndex);
 
-    // Keep the old roll running until the newly selected roll hits quantized trigger.
-    // Scheduler reuses the same logical pad (0), so the new roll replaces the old one in sync.
-    scheduler_->startRoll(0, snap.beat, div, std::max(0.05f, volume) * xCfg_.masterVolume);
+    scheduler_->startRoll(0, snap.beat, div, std::max(0.05f, volume));
 
     activeRollButton_ = rollButtonIndex;
     xCfg_.globalQuantization = rollButtonIndex;
@@ -249,7 +258,9 @@ void App::runHeadless() {
 }
 
 void App::runGui() {
-    activeRollButton_ = std::clamp(xCfg_.globalQuantization, 0, 4);
+    activeRollButton_ = (xCfg_.globalQuantization >= 0 && xCfg_.globalQuantization <= 4)
+        ? xCfg_.globalQuantization
+        : -1;
 
     xpad::gui::GuiHandlers handlers;
     handlers.onTrigger = [this]() {
@@ -257,6 +268,15 @@ void App::runGui() {
     };
     handlers.onMasterVolumeChange = [this](float v) {
         xCfg_.masterVolume = v;
+        if (scheduler_) scheduler_->setMasterVolume(v);
+    };
+    handlers.onPitchChange = [this](float semitones) {
+        xCfg_.pitchSemitones = semitones;
+        if (scheduler_) scheduler_->setPitchSemitones(semitones);
+    };
+    handlers.onFilterChange = [this](float amount) {
+        xCfg_.filterAmount = amount;
+        if (scheduler_) scheduler_->setFilterAmount(amount);
     };
     handlers.onSampleSelectionChange = [this](int index) {
         if (index < 0 || index >= static_cast<int>(availableSamplePaths_.size())) return;
@@ -290,3 +310,5 @@ void App::runGui() {
 }
 
 } // namespace xpad::app
+
+

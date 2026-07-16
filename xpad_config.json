@@ -76,8 +76,10 @@
     2
   ],
   "ui": {
-    "globalQuantization": 1,
-    "masterVolume": 0.4819999933242798,
+    "filterAmount": 0.0,
+    "globalQuantization": -1,
+    "masterVolume": 1.0,
+    "pitchSemitones": 0.0,
     "selectedSamplePath": "samples/snare.mp3"
   }
 }

@@ -14,6 +14,8 @@ namespace xpad::gui {
 struct GuiHandlers {
     std::function<void()>                           onTrigger;
     std::function<void(float volume)>               onMasterVolumeChange;
+    std::function<void(float semitones)>            onPitchChange;
+    std::function<void(float amount)>               onFilterChange;
     std::function<void(int sampleIndex)>            onSampleSelectionChange;
     std::function<void(int rulerIndex)>             onRulerChange;
     std::function<void()>                           onSaveConfig;
@@ -50,3 +52,4 @@ private:
 };
 
 } // namespace xpad::gui
+

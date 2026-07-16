@@ -108,8 +108,6 @@ void MainWindow::run(const xpad::link::LinkManager& linkManager,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                      ImGuiWindowFlags_NoBringToFrontOnFocus);
 
-        ImGui::Text("X-PAD Style");
-        ImGui::Separator();
         ImGui::Text("Link: %s | BPM: %.2f | Beat: %.2f",
                     snapshot.connected ? "Connected" : "Disconnected",
                     snapshot.tempoBpm,
@@ -148,9 +146,16 @@ void MainWindow::run(const xpad::link::LinkManager& linkManager,
             }
 
             if (ImGui::Button(kRollLabels[i], buttonSize)) {
-                activeRollButton = i;
-                cfg.globalQuantization = i;
-                if (handlers_.onRulerChange) handlers_.onRulerChange(i);
+                // Toggle: clicking the active button deselects it (stops roll)
+                if (isActive) {
+                    activeRollButton = -1;
+                    cfg.globalQuantization = -1;
+                    if (handlers_.onRulerChange) handlers_.onRulerChange(-1);
+                } else {
+                    activeRollButton = i;
+                    cfg.globalQuantization = i;
+                    if (handlers_.onRulerChange) handlers_.onRulerChange(i);
+                }
             }
 
             if (isActive) {
@@ -164,6 +169,22 @@ void MainWindow::run(const xpad::link::LinkManager& linkManager,
         if (ImGui::SliderFloat("Master", &mv, 0.0f, 1.0f)) {
             cfg.masterVolume = mv;
             if (handlers_.onMasterVolumeChange) handlers_.onMasterVolumeChange(mv);
+        }
+        ImGui::PopItemWidth();
+
+        float pitch = cfg.pitchSemitones;
+        ImGui::PushItemWidth(240.0f);
+        if (ImGui::SliderFloat("Pitch", &pitch, -12.0f, 12.0f, "%.1f st")) {
+            cfg.pitchSemitones = pitch;
+            if (handlers_.onPitchChange) handlers_.onPitchChange(pitch);
+        }
+        ImGui::PopItemWidth();
+
+        float filter = cfg.filterAmount;
+        ImGui::PushItemWidth(240.0f);
+        if (ImGui::SliderFloat("Filter", &filter, 0.0f, 1.0f)) {
+            cfg.filterAmount = filter;
+            if (handlers_.onFilterChange) handlers_.onFilterChange(filter);
         }
         ImGui::PopItemWidth();
 
@@ -182,3 +203,4 @@ void MainWindow::run(const xpad::link::LinkManager& linkManager,
 }
 
 } // namespace xpad::gui
+

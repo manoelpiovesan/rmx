@@ -1,13 +1,12 @@
 #include "audio/AudioScheduler.hpp"
-#include "audio/TimeStretch.hpp"
-#include "core/Logger.hpp"
+
 #include <algorithm>
 #include <cmath>
 
 namespace xpad::audio {
 
-// RMX-like ruler in beat fractions:
-// 2/1=2 beats, 1/1=1 beat, 1/2=0.5, 1/4=0.25, 1/8=0.125
+constexpr double kPi = 3.14159265358979323846;
+
 double divisionToBeats(QuantizeDivision div) noexcept {
     switch (div) {
         case QuantizeDivision::DoubleWhole:  return 2.0;
@@ -28,9 +27,7 @@ double quantizeNextBeat(double currentBeat, QuantizeDivision div) noexcept {
 
 AudioScheduler::AudioScheduler(std::shared_ptr<xpad::samples::SampleBank> bank)
     : bank_(std::move(bank)) {
-    for (auto& v : voices_) {
-        v.active = false;
-    }
+    for (auto& v : voices_) v.active = false;
     for (auto& f : padActive_) f.store(false);
     for (auto& f : padScheduled_) f.store(false);
 }
@@ -40,13 +37,29 @@ void AudioScheduler::setBank(std::shared_ptr<xpad::samples::SampleBank> bank) {
     bank_ = std::move(bank);
 }
 
-void AudioScheduler::schedulePad(int padIndex,
-                                  double currentBeat,
-                                  QuantizeDivision quantization,
-                                  float volume) {
-    if (padIndex < 0 || padIndex >= xpad::samples::kPadCount) return;
+void AudioScheduler::setMasterVolume(float value) noexcept {
+    masterVolume_.store(std::clamp(value, 0.0f, 1.0f));
+}
 
-    const double triggerAtBeat = quantizeNextBeat(currentBeat, quantization);
+void AudioScheduler::setPitchSemitones(float semitones) noexcept {
+    const float clamped = std::clamp(semitones, -12.0f, 12.0f);
+    pitchSemitones_.store(clamped);
+    pitchRatio_.store(std::pow(2.0f, clamped / 12.0f));
+}
+
+void AudioScheduler::setFilterAmount(float amount) noexcept {
+    filterAmount_.store(std::clamp(amount, 0.0f, 1.0f));
+}
+
+float AudioScheduler::masterVolume() const noexcept { return masterVolume_.load(); }
+float AudioScheduler::pitchSemitones() const noexcept { return pitchSemitones_.load(); }
+float AudioScheduler::filterAmount() const noexcept { return filterAmount_.load(); }
+
+void AudioScheduler::schedulePad(int padIndex,
+                                 double currentBeat,
+                                 QuantizeDivision quantization,
+                                 float volume) {
+    if (padIndex < 0 || padIndex >= xpad::samples::kPadCount) return;
 
     std::shared_ptr<xpad::samples::Sample> sample;
     {
@@ -59,13 +72,13 @@ void AudioScheduler::schedulePad(int padIndex,
         sample->meta.mode == xpad::samples::PadMode::Loop ||
         sample->meta.mode == xpad::samples::PadMode::Hold;
 
+    const double triggerAtBeat = quantizeNextBeat(currentBeat, quantization);
     {
         std::scoped_lock lock(scheduleMutex_);
         pendingEvents_.erase(
             std::remove_if(pendingEvents_.begin(), pendingEvents_.end(),
                            [padIndex](const ScheduledEvent& e){ return e.padIndex == padIndex; }),
             pendingEvents_.end());
-
         pendingEvents_.push_back(ScheduledEvent{
             .padIndex = padIndex,
             .triggerAtBeat = triggerAtBeat,
@@ -92,14 +105,12 @@ void AudioScheduler::startRoll(int padIndex,
     if (!sample || !sample->loaded()) return;
 
     const double triggerAtBeat = quantizeNextBeat(currentBeat, rollDivision);
-
     {
         std::scoped_lock lock(scheduleMutex_);
         pendingEvents_.erase(
             std::remove_if(pendingEvents_.begin(), pendingEvents_.end(),
                            [padIndex](const ScheduledEvent& e){ return e.padIndex == padIndex; }),
             pendingEvents_.end());
-
         pendingEvents_.push_back(ScheduledEvent{
             .padIndex = padIndex,
             .triggerAtBeat = triggerAtBeat,
@@ -142,12 +153,11 @@ std::uint64_t AudioScheduler::loopSliceFrames(const Voice& voice, double tempoBp
 }
 
 void AudioScheduler::processAudio(float* outputBuffer,
-                                   std::uint32_t frameCount,
-                                   std::uint32_t sampleRate,
-                                   double currentBeat,
-                                   double tempoBpm) {
+                                  std::uint32_t frameCount,
+                                  std::uint32_t sampleRate,
+                                  double currentBeat,
+                                  double tempoBpm) {
     std::fill(outputBuffer, outputBuffer + frameCount * 2, 0.0f);
-
     if (frameCount == 0 || sampleRate == 0) return;
 
     {
@@ -168,11 +178,14 @@ void AudioScheduler::processAudio(float* outputBuffer,
         }
     }
 
+    const float master = masterVolume_.load();
+    const float pitchRatio = pitchRatio_.load();
+
     for (auto& voice : voices_) {
         if (!voice.active || !voice.sample || !voice.sample->loaded()) continue;
 
         const auto& smp = *voice.sample;
-        const float vol = voice.volume * static_cast<float>(smp.meta.volume);
+        const float vol = voice.volume * static_cast<float>(smp.meta.volume) * master;
 
         std::uint64_t loopFrames = 0;
         if (voice.loop && voice.useLoopSlice) {
@@ -181,10 +194,10 @@ void AudioScheduler::processAudio(float* outputBuffer,
         }
 
         for (std::uint32_t f = 0; f < frameCount; ++f) {
-            const std::uint64_t endFrame = (voice.loop && voice.useLoopSlice) ? loopFrames : smp.frameCount;
+            const double endFrame = static_cast<double>((voice.loop && voice.useLoopSlice) ? loopFrames : smp.frameCount);
             if (voice.readPosition >= endFrame) {
                 if (voice.loop) {
-                    voice.readPosition = 0;
+                    voice.readPosition = 0.0;
                 } else {
                     voice.active = false;
                     if (voice.padIndex >= 0 && voice.padIndex < xpad::samples::kPadCount) {
@@ -194,13 +207,38 @@ void AudioScheduler::processAudio(float* outputBuffer,
                 }
             }
 
-            const std::uint64_t sourceFrame = voice.readPosition;
-            const float left  = smp.data[sourceFrame * 2 + 0] * vol;
-            const float right = smp.data[sourceFrame * 2 + 1] * vol;
+            const std::uint64_t i0 = static_cast<std::uint64_t>(voice.readPosition);
+            const std::uint64_t i1 = std::min<std::uint64_t>(i0 + 1, smp.frameCount - 1);
+            const float frac = static_cast<float>(voice.readPosition - static_cast<double>(i0));
+
+            const float l0 = smp.data[i0 * 2 + 0];
+            const float r0 = smp.data[i0 * 2 + 1];
+            const float l1 = smp.data[i1 * 2 + 0];
+            const float r1 = smp.data[i1 * 2 + 1];
+
+            const float left  = (l0 + (l1 - l0) * frac) * vol;
+            const float right = (r0 + (r1 - r0) * frac) * vol;
 
             outputBuffer[f * 2 + 0] += left;
             outputBuffer[f * 2 + 1] += right;
-            voice.readPosition += 1;
+
+            voice.readPosition += static_cast<double>(pitchRatio);
+        }
+    }
+
+    const float filterAmt = filterAmount_.load();
+    if (filterAmt > 0.0001f) {
+        const double cutoffHz = 18000.0 - static_cast<double>(filterAmt) * (18000.0 - 200.0);
+        const double a = std::exp(-2.0 * kPi * cutoffHz / static_cast<double>(sampleRate));
+        const double b = 1.0 - a;
+
+        for (std::uint32_t i = 0; i < frameCount; ++i) {
+            const double inL = outputBuffer[i * 2 + 0];
+            const double inR = outputBuffer[i * 2 + 1];
+            lpfStateL_ = b * inL + a * lpfStateL_;
+            lpfStateR_ = b * inR + a * lpfStateR_;
+            outputBuffer[i * 2 + 0] = static_cast<float>(lpfStateL_);
+            outputBuffer[i * 2 + 1] = static_cast<float>(lpfStateR_);
         }
     }
 
@@ -252,7 +290,7 @@ void AudioScheduler::activateVoice(int padIndex,
     if (!target) return;
 
     target->sample = sample;
-    target->readPosition = 0;
+    target->readPosition = 0.0;
     target->volume = volume;
     target->active = true;
     target->loop = loop;
@@ -278,4 +316,5 @@ void AudioScheduler::stopVoice(int padIndex) {
 }
 
 } // namespace xpad::audio
+
 

@@ -33,6 +33,8 @@ bool XPadConfig::save(const std::string& filePath) const {
         j["link"]["quantum"] = quantum;
 
         j["ui"]["masterVolume"]      = masterVolume;
+        j["ui"]["pitchSemitones"]    = pitchSemitones;
+        j["ui"]["filterAmount"]      = filterAmount;
         j["ui"]["selectedSamplePath"] = selectedSamplePath;
         j["ui"]["globalQuantization"] = globalQuantization;
 
@@ -82,6 +84,8 @@ bool XPadConfig::load(const std::string& filePath) {
         quantum         = j.value("/link/quantum"_json_pointer, 4.0);
 
         masterVolume      = j.value("/ui/masterVolume"_json_pointer, 1.0f);
+        pitchSemitones    = j.value("/ui/pitchSemitones"_json_pointer, 0.0f);
+        filterAmount      = j.value("/ui/filterAmount"_json_pointer, 0.0f);
         selectedSamplePath= j.value("/ui/selectedSamplePath"_json_pointer, std::string{});
         globalQuantization= j.value("/ui/globalQuantization"_json_pointer, 3);
 
@@ -105,3 +109,4 @@ std::string XPadConfig::defaultPath() {
 }
 
 } // namespace xpad::config
+
