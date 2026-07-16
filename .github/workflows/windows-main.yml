@@ -9,15 +9,12 @@ jobs:
   build-windows:
     runs-on: windows-latest
 
-    defaults:
-      run:
-        shell: msys2 {0}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Ensure Ableton Link SDK exists
+        shell: bash
         run: |
           set -e
 
@@ -47,18 +44,22 @@ jobs:
             mingw-w64-ucrt-x86_64-rubberband
 
       - name: Configure
+        shell: msys2 {0}
         run: |
           cmake --preset ableton-link
 
       - name: Build
+        shell: msys2 {0}
         run: |
           cmake --build --preset ableton-link
 
       - name: Test
+        shell: msys2 {0}
         run: |
           ctest --preset ableton-link
 
       - name: Package EXE and runtime DLLs
+        shell: msys2 {0}
         run: |
           set -e
           rm -rf dist
@@ -83,4 +84,5 @@ jobs:
         with:
           name: xpad-link-windows
           path: dist/
+
 
