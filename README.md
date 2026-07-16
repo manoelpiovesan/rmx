@@ -16,24 +16,35 @@ Fully mappable to MIDI controllers, featuring native Pitch and Filter effects ap
 
 </div>
 
-### Star this repository
+---
+
+## Project
+
+This project aims to replicate the Sample Roll (X-Pad) functionality of the Pioneer RMX-1000,
+which currently costs around $1,000 (approximately R$12,000 in Brazil), allowing users to
+achieve the same experience with an inexpensive MIDI controller of their choice.
+
+
+## Star this repository
 
 If you find this project useful or interesting, please consider giving it a star on GitHub.
 
-### Support the project
+## Support the project
 
 If this project has helped you, consider supporting its development with a donation on **Ko-fi**. Every contribution helps cover development time, maintenance, and future improvements.
 
 **☕ Buy me a coffee:** https://ko-fi.com/L3L61SRB88
 
-
-### Project 
-
-This project aims to replicate the Sample Roll (X-Pad) functionality of the Pioneer RMX-1000,
-which currently costs around $1,000 (approximately R$12,000 in Brazil), allowing users to 
-achieve the same experience with an inexpensive MIDI controller of their choice.
-
-
-### Contributing
+## Contributing
 Contributions are welcome! If you have any ideas, suggestions, or improvements, please feel free to submit a 
 pull request or open an issue. Let's work together to make this project even better!
+
+## License
+
+Copyright (C) 2026 Manoel Rodrigues
+
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0).
+
+You are free to use, study, modify, and redistribute this software under the terms of the GPL v3. Any distributed modified version must also be licensed under GPL v3 and include its complete corresponding source code.
+
+See the [LICENSE](LICENSE) file for details.
