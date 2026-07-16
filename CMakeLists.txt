@@ -120,6 +120,11 @@ if(XPAD_USE_ABLETON_LINK)
     include("${ABLETON_LINK_DIR}/cmake_include/ConfigureAbletonLink.cmake")
     ConfigureAbletonLink("${ABLETON_LINK_DIR}")
     target_link_libraries(xpad_core PUBLIC Ableton::Link)
+
+    # Windows socket libraries needed for Ableton Link networking
+    if(WIN32)
+        target_link_libraries(xpad_core PUBLIC ws2_32 iphlpapi wsock32)
+    endif()
 endif()
 
 # --- Executables -------------------------------------------------------------
