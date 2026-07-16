@@ -16,8 +16,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Ensure Ableton Link SDK exists
+        run: |
+          set -e
+
+          # Some repos reference ableton-link as submodule but have broken/missing .gitmodules.
+          # Fallback: clone SDK directly when not present.
+          if [ ! -f "ableton-link/include/ableton/Link.hpp" ]; then
+            rm -rf ableton-link
+            git clone --depth 1 https://github.com/Ableton/link.git ableton-link
+          fi
+
+          # Ensure nested SDK submodules (asio-standalone, etc.) are present.
+          git -C ableton-link submodule update --init --recursive
 
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
@@ -71,3 +83,4 @@ jobs:
         with:
           name: xpad-link-windows
           path: dist/
+
