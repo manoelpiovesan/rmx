@@ -9,10 +9,24 @@
 #include <iostream>
 #include <stdexcept>
 #include <thread>
+#include <cstdlib>
+#include <string>
 
 namespace {
 
 // ─── helpers ────────────────────────────────────────────────────────────────
+
+// Get cross-platform temporary directory path
+std::string getTempDir() {
+#ifdef _WIN32
+    const char* temp = std::getenv("TEMP");
+    if (!temp) temp = std::getenv("TMP");
+    if (!temp) temp = ".";
+    return std::string(temp) + "\\";
+#else
+    return "/tmp/";
+#endif
+}
 
 void assertNear(double actual, double expected, double tolerance, const char* message) {
     if (std::fabs(actual - expected) > tolerance) {
@@ -222,7 +236,7 @@ void testSchedulerOneShot() {
 // ─── Config tests ────────────────────────────────────────────────────────────
 
 void testConfigRoundTrip() {
-    const std::string path = "/tmp/xpad_test_config.json";
+    const std::string path = getTempDir() + "xpad_test_config.json";
 
     xpad::config::XPadConfig original;
     original.sampleRate      = 44100;
