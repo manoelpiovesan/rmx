@@ -1,6 +1,7 @@
 #include "midi/MidiManager.hpp"
 #include "core/Logger.hpp"
 #include <RtMidi.h>
+#include <algorithm>
 #include <stdexcept>
 
 namespace xpad::midi {
@@ -69,9 +70,17 @@ bool MidiManager::openPort(std::uint32_t portIndex) {
 
 bool MidiManager::openPortByName(const std::string& name) {
     if (!impl_->midiIn) return false;
+    auto toLower = [](std::string value) {
+        std::transform(value.begin(), value.end(), value.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return value;
+    };
+
+    const std::string wanted = toLower(name);
     const unsigned int count = impl_->midiIn->getPortCount();
     for (unsigned int i = 0; i < count; ++i) {
-        if (impl_->midiIn->getPortName(i).find(name) != std::string::npos) {
+        const std::string portName = impl_->midiIn->getPortName(i);
+        if (toLower(portName).find(wanted) != std::string::npos) {
             return openPort(i);
         }
     }

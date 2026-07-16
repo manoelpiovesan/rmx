@@ -112,7 +112,7 @@ void MainWindow::run(const xpad::link::LinkManager& linkManager,
         int fbW{0}, fbH{0};
         glfwGetFramebufferSize(impl_->window, &fbW, &fbH);
         ImGui::SetNextWindowSize({static_cast<float>(fbW), static_cast<float>(fbH)}, ImGuiCond_Always);
-        ImGui::Begin("XPad-1000 by manoelpiovesan", nullptr,
+        ImGui::Begin("X-1000 | @manoelpiovesan", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                      ImGuiWindowFlags_NoBringToFrontOnFocus);
 
@@ -123,7 +123,12 @@ void MainWindow::run(const xpad::link::LinkManager& linkManager,
 
         if (handlers_.onGetMidiStatus) {
             const auto [portLabel, msgLabel] = handlers_.onGetMidiStatus();
-            ImGui::Text("MIDI: %s", portLabel.c_str());
+            const bool midiConnected = !portLabel.empty() && portLabel != "(none)";
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                                  midiConnected ? ImVec4(0.12f, 0.85f, 0.35f, 1.0f)
+                                                : ImVec4(0.95f, 0.45f, 0.30f, 1.0f));
+            ImGui::Text("MIDI: %s", midiConnected ? portLabel.c_str() : "Nao conectado");
+            ImGui::PopStyleColor();
             ImGui::TextDisabled("Last: %s", msgLabel.c_str());
         }
 

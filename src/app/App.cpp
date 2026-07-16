@@ -85,7 +85,7 @@ int App::run() {
 }
 
 void App::initSubsystems() {
-    core::Logger::info("XPad Link — inicializando...");
+    core::Logger::info("X-1000 — inicializando...");
 
     linkManager_ = std::make_shared<xpad::link::LinkManager>(
         xpad::link::LinkManager::Config{
@@ -164,8 +164,19 @@ void App::initSubsystems() {
             opened = true;
         }
 
+        // 4) If still not open, retry by exact index scan (some drivers fail by cached name).
         if (!opened) {
-            core::Logger::warn("MIDI: falha ao abrir qualquer porta");
+            for (std::size_t i = 0; i < midiPorts.size(); ++i) {
+                if (midiManager_->openPort(static_cast<std::uint32_t>(i))) {
+                    xCfg_.midiPortName = midiPorts[i];
+                    opened = true;
+                    break;
+                }
+            }
+        }
+
+        if (!opened) {
+            core::Logger::warn("MIDI: falha ao abrir qualquer porta (verifique se outro software nao esta segurando a controladora)");
         }
     }
 
@@ -494,7 +505,7 @@ void App::runGui() {
     };
 
     window_ = std::make_unique<xpad::gui::MainWindow>(std::move(handlers));
-    if (!window_->init(900, 420, "XPad-1000 by manoelpiovesan")) {
+    if (!window_->init(900, 420, "X-1000 | @manoelpiovesan")) {
         core::Logger::error("GUI: falha na inicializacao, rodando headless");
         runHeadless();
         return;
