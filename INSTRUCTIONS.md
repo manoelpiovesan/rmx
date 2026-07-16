@@ -9,8 +9,6 @@ com o **Serato DJ Pro**.
 O programa **não deve depender do Ableton Live**. Ele deve participar diretamente da sessão 
 **Ableton Link** criada pelo Serato.
 
----
-
 # Objetivos principais
 
 O software deverá:
