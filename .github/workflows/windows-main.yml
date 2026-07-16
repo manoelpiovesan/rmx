@@ -3,7 +3,12 @@ name: Build Windows EXE
 on:
   push:
     branches: ["master"]
+  release:
+    types: [published]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
@@ -84,10 +89,11 @@ jobs:
           cp build-windows/xpad_link.exe dist/
           cp build-windows/xpad_link_tests.exe dist/
 
-          # Try to copy dependent runtime DLLs from UCRT64.
-          # If ntldd is unavailable for any reason, keep at least the executables.
+          # Copy runtime DLLs discovered from the built executable.
           if command -v ntldd >/dev/null 2>&1; then
-            ntldd -R dist/xpad_link.exe | awk '/ucrt64\\/bin\\/.*\\.dll/ {print $3}' | sort -u > dlls.txt || true
+            ntldd -R dist/xpad_link.exe \
+              | awk '/=>/ && /\/ucrt64\/bin\/.*\.dll/ {print $3} /\/ucrt64\/bin\/.*\.dll/ && $1 ~ /^\// {print $1}' \
+              | sort -u > dlls.txt || true
             if [ -f dlls.txt ]; then
               while IFS= read -r dll; do
                 [ -f "$dll" ] && cp "$dll" dist/ || true
@@ -95,11 +101,38 @@ jobs:
             fi
           fi
 
-      - name: Upload artifact
+          # Fallback for common dependencies in case ntldd misses indirect DLLs.
+          for dll in \
+            libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll \
+            libglfw3.dll librtmidi.dll librubberband.dll libfftw3-3.dll libsamplerate-0.dll
+          do
+            for dir in /ucrt64/bin /mingw64/bin; do
+              [ -f "$dir/$dll" ] && cp -n "$dir/$dll" dist/ || true
+            done
+          done
+
+          ls -la dist
+
+      - name: Create zip package
+        shell: msys2 {0}
+        run: |
+          set -e
+          VERSION="${GITHUB_REF_NAME:-manual}"
+          ZIP_NAME="xpad-link-windows-${VERSION}.zip"
+          tar -a -cf "$ZIP_NAME" -C dist .
+          echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
+
+      - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: xpad-link-windows
-          path: dist/
+          name: xpad-link-windows-${{ github.ref_name }}
+          path: ${{ env.ZIP_NAME }}
+
+      - name: Attach artifact to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP_NAME }}
 
 
 

@@ -61,6 +61,18 @@
         "controlId": "roll_0",
         "number": 40,
         "type": "note"
+      },
+      {
+        "channel": 0,
+        "controlId": "sample_prev",
+        "number": 36,
+        "type": "note"
+      },
+      {
+        "channel": 0,
+        "controlId": "sample_next",
+        "number": 37,
+        "type": "note"
       }
     ],
     "mappings": [
@@ -126,10 +138,10 @@
     2
   ],
   "ui": {
-    "filterAmount": 0.19685041904449463,
-    "globalQuantization": 4,
-    "masterVolume": 0.6692913174629211,
-    "pitchSemitones": 1.0393695831298828,
-    "selectedSamplePath": "samples/CLAP.wav"
+    "filterAmount": 0.6377953290939331,
+    "globalQuantization": -1,
+    "masterVolume": 0.4803149700164795,
+    "pitchSemitones": 0.2834644317626953,
+    "selectedSamplePath": "samples/SNARE.wav"
   }
 }
