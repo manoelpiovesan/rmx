@@ -8,8 +8,6 @@ Fully mappable to MIDI controllers, featuring native Pitch and Filter effects ap
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/manoelpiovesan/x-1000/windows-main.yml?style=for-the-badge)](https://github.com/manoelpiovesan/x-1000/actions)
 [![Latest Release](https://img.shields.io/github/v/release/manoelpiovesan/x-1000?style=for-the-badge)](https://github.com/manoelpiovesan/x-1000/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/manoelpiovesan/x-1000/total?style=for-the-badge)](https://github.com/manoelpiovesan/x-1000/releases)
-[![GitHub downloads (latest release)](https://img.shields.io/github/downloads/manoelpiovesan/x-1000/latest/total?style=for-the-badge)](https://github.com/manoelpiovesan/x-1000/releases/latest)
 [![License](https://img.shields.io/github/license/manoelpiovesan/x-1000?style=for-the-badge)](LICENSE)
 [![Ko-Fi](https://img.shields.io/badge/Support-Ko--Fi-ff5f5f?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/L3L61SRB88)
 
