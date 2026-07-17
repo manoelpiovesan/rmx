@@ -4,11 +4,30 @@
 
 #include "audio/AudioEngine.hpp"
 #include "core/Logger.hpp"
+#include <algorithm>
+#include <cctype>
 #include <atomic>
 #include <cstring>
 #include <stdexcept>
 
 namespace xpad::audio {
+
+namespace {
+
+std::string toLower(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return value;
+}
+
+bool nameMatches(const std::string& candidate, const std::string& wanted) {
+    const auto c = toLower(candidate);
+    const auto w = toLower(wanted);
+    return c == w || c.find(w) != std::string::npos || w.find(c) != std::string::npos;
+}
+
+} // namespace
 
 struct AudioEngine::Impl {
     ma_device device{};
@@ -68,9 +87,51 @@ bool AudioEngine::start() {
     impl_->deviceConfig.dataCallback      = Impl::audioCallback;
     impl_->deviceConfig.pUserData         = impl_.get();
 
+    ma_device_id selectedDeviceId{};
+    bool useExplicitDevice = false;
+    std::string selectedDeviceName = config_.deviceName;
+
+    if (!config_.deviceName.empty()) {
+        ma_context context{};
+        if (ma_context_init(nullptr, 0, nullptr, &context) == MA_SUCCESS) {
+            ma_device_info* pPlaybackInfos{};
+            ma_uint32 playbackCount{};
+            ma_device_info* pCaptureInfos{};
+            ma_uint32 captureCount{};
+
+            if (ma_context_get_devices(&context, &pPlaybackInfos, &playbackCount,
+                                       &pCaptureInfos, &captureCount) == MA_SUCCESS) {
+                for (ma_uint32 i = 0; i < playbackCount; ++i) {
+                    if (!nameMatches(pPlaybackInfos[i].name, config_.deviceName)) continue;
+                    selectedDeviceId = pPlaybackInfos[i].id;
+                    selectedDeviceName = pPlaybackInfos[i].name;
+                    useExplicitDevice = true;
+                    break;
+                }
+            }
+
+            ma_context_uninit(&context);
+        }
+
+        if (!useExplicitDevice) {
+            core::Logger::warn("AudioEngine: selected output device not found, falling back to default: '" + config_.deviceName + "'");
+        } else {
+            impl_->deviceConfig.playback.pDeviceID = &selectedDeviceId;
+        }
+    }
+
     if (ma_device_init(nullptr, &impl_->deviceConfig, &impl_->device) != MA_SUCCESS) {
-        core::Logger::error("AudioEngine: failed to initialize audio device");
-        return false;
+        if (useExplicitDevice) {
+            core::Logger::warn("AudioEngine: failed to initialize selected device, retrying with default output");
+            impl_->deviceConfig.playback.pDeviceID = nullptr;
+            if (ma_device_init(nullptr, &impl_->deviceConfig, &impl_->device) != MA_SUCCESS) {
+                core::Logger::error("AudioEngine: failed to initialize audio device");
+                return false;
+            }
+        } else {
+            core::Logger::error("AudioEngine: failed to initialize audio device");
+            return false;
+        }
     }
 
     if (ma_device_start(&impl_->device) != MA_SUCCESS) {
@@ -81,6 +142,10 @@ bool AudioEngine::start() {
 
     impl_->running.store(true);
     config_.sampleRate = impl_->device.sampleRate;
+    config_.deviceName = impl_->device.playback.name;
+    if (config_.deviceName.empty()) {
+        config_.deviceName = useExplicitDevice ? selectedDeviceName : std::string{};
+    }
 
     core::Logger::info("AudioEngine: started — sampleRate=" +
                         std::to_string(impl_->device.sampleRate) +

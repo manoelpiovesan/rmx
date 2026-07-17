@@ -1,7 +1,7 @@
 {
   "audio": {
     "bufferFrames": 256,
-    "device": "",
+    "device": "Family 17h (Models 00h-0fh) HD Audio Controller Estéreo analógico",
     "sampleRate": 48000
   },
   "bank": {
@@ -125,7 +125,7 @@
         "volume": 1.0
       }
     ],
-    "port": "LPD8:LPD8 MIDI 1 28:0"
+    "port": "Midi Through:Midi Through Port-0 14:0"
   },
   "padQuantization": [
     0,

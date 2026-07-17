@@ -107,6 +107,7 @@ void App::initSubsystems() {
 
     audioEngine_ = std::make_shared<xpad::audio::AudioEngine>(
         xpad::audio::AudioConfig{
+            .deviceName       = xCfg_.audioDevice,
             .sampleRate       = xCfg_.sampleRate,
             .bufferSizeFrames = xCfg_.bufferSizeFrames,
         });
@@ -116,6 +117,7 @@ void App::initSubsystems() {
         return {snap.beat, snap.tempoBpm};
     });
     audioEngine_->start();
+    xCfg_.audioDevice = audioEngine_->config().deviceName;
 
     midiManager_ = std::make_shared<xpad::midi::MidiManager>();
     midiManager_->setCallback([this](const xpad::midi::MidiMessage& msg) {
@@ -181,6 +183,9 @@ void App::initSubsystems() {
     }
 
     midiConnectedPortLabel_ = midiManager_->isOpen() ? midiManager_->openPortName() : "(none)";
+    if (midiManager_->isOpen()) {
+        xCfg_.midiPortName = midiManager_->openPortName();
+    }
 
     rebuildMidiBindingCache();
 }
@@ -287,6 +292,74 @@ void App::setMidiLearnMode(bool enabled) {
     if (!enabled) {
         pendingMidiLearnControl_.clear();
     }
+}
+
+void App::applyMidiPortSelection(const std::string& portName) {
+    const std::string previous = xCfg_.midiPortName;
+    xCfg_.midiPortName = portName;
+
+    if (!midiManager_) return;
+
+    midiManager_->closePort();
+    bool opened = portName.empty();
+    if (!portName.empty()) {
+        opened = midiManager_->openPortByName(portName);
+    }
+
+    if (!opened) {
+        core::Logger::warn("MIDI: nao foi possivel abrir a porta selecionada, restaurando a anterior");
+        xCfg_.midiPortName = previous;
+        if (!previous.empty()) {
+            midiManager_->openPortByName(previous);
+        }
+    }
+
+    midiConnectedPortLabel_ = midiManager_->isOpen() ? midiManager_->openPortName() : "(none)";
+    if (midiManager_->isOpen()) {
+        xCfg_.midiPortName = midiManager_->openPortName();
+    }
+    xCfg_.save(xpad::config::XPadConfig::defaultPath());
+}
+
+void App::applyAudioDeviceSelection(const std::string& deviceName) {
+    const std::string previous = xCfg_.audioDevice;
+    xCfg_.audioDevice = deviceName;
+
+    if (!audioEngine_) return;
+
+    const bool wasRunning = audioEngine_->running();
+    if (wasRunning) audioEngine_->stop();
+
+    const auto previousEngine = audioEngine_;
+    audioEngine_ = std::make_shared<xpad::audio::AudioEngine>(
+        xpad::audio::AudioConfig{
+            .deviceName       = xCfg_.audioDevice,
+            .sampleRate       = xCfg_.sampleRate,
+            .bufferSizeFrames = xCfg_.bufferSizeFrames,
+        });
+    audioEngine_->setScheduler(scheduler_);
+    audioEngine_->setLinkStateProvider([this]() -> std::pair<double, double> {
+        const auto snap = linkManager_->snapshot();
+        return {snap.beat, snap.tempoBpm};
+    });
+
+    if (!audioEngine_->start()) {
+        core::Logger::warn("Audio: nao foi possivel abrir a saida selecionada, restaurando a anterior");
+        xCfg_.audioDevice = previous;
+        audioEngine_ = previousEngine;
+        if (audioEngine_) {
+            audioEngine_->setScheduler(scheduler_);
+            audioEngine_->setLinkStateProvider([this]() -> std::pair<double, double> {
+                const auto snap = linkManager_->snapshot();
+                return {snap.beat, snap.tempoBpm};
+            });
+            if (wasRunning) audioEngine_->start();
+        }
+        return;
+    }
+
+    xCfg_.audioDevice = audioEngine_->config().deviceName;
+    xCfg_.save(xpad::config::XPadConfig::defaultPath());
 }
 
 void App::beginMidiLearn(const std::string& controlId) {
@@ -490,6 +563,12 @@ void App::runGui() {
     };
     handlers.onRulerChange = [this](int rulerIndex) {
         selectRoll(rulerIndex, 1.0f);
+    };
+    handlers.onMidiPortChange = [this](const std::string& portName) {
+        applyMidiPortSelection(portName);
+    };
+    handlers.onAudioDeviceChange = [this](const std::string& deviceName) {
+        applyAudioDeviceSelection(deviceName);
     };
     handlers.onSetMidiLearnMode = [this](bool enabled) {
         setMidiLearnMode(enabled);

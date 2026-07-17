@@ -45,6 +45,8 @@ private:
     void selectRoll(int rollButtonIndex, float volume);
     void beginMidiLearn(const std::string& controlId);
     void setMidiLearnMode(bool enabled);
+    void applyMidiPortSelection(const std::string& portName);
+    void applyAudioDeviceSelection(const std::string& deviceName);
     void applyMidiControl(const std::string& controlId, const xpad::midi::MidiMessage& msg);
     void rebuildMidiBindingCache();
 

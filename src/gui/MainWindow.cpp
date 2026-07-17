@@ -97,12 +97,30 @@ void MainWindow::run(const xpad::link::LinkManager& linkManager,
         return it == midiBindings.end() ? "-" : it->second;
     };
 
-    if (!impl_->window) return;
-
     while (!glfwWindowShouldClose(impl_->window)) {
         glfwPollEvents();
 
         ImGui_ImplOpenGL3_NewFrame();
+
+            auto makeComboItems = [](const std::string& defaultLabel,
+                                     const std::vector<std::string>& values,
+                                     std::vector<std::string>& storage,
+                                     std::vector<const char*>& cstrStorage) {
+                storage.clear();
+                cstrStorage.clear();
+                storage.push_back(defaultLabel);
+                storage.insert(storage.end(), values.begin(), values.end());
+                cstrStorage.reserve(storage.size());
+                for (const auto& item : storage) cstrStorage.push_back(item.c_str());
+            };
+
+            auto indexFromValue = [](const std::vector<std::string>& values, const std::string& current) {
+                if (current.empty()) return 0;
+                for (std::size_t i = 0; i < values.size(); ++i) {
+                    if (values[i] == current) return static_cast<int>(i + 1);
+                }
+                return 0;
+            };
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
@@ -130,6 +148,28 @@ void MainWindow::run(const xpad::link::LinkManager& linkManager,
             ImGui::Text("MIDI: %s", midiConnected ? portLabel.c_str() : "Nao conectado");
             ImGui::PopStyleColor();
             ImGui::TextDisabled("Last: %s", msgLabel.c_str());
+        }
+
+        std::vector<std::string> midiComboStorage;
+        std::vector<const char*> midiComboItems;
+        makeComboItems("Auto (first available)", midiPorts, midiComboStorage, midiComboItems);
+        int midiSelected = indexFromValue(midiPorts, cfg.midiPortName);
+        if (ImGui::Combo("MIDI Input", &midiSelected, midiComboItems.data(), static_cast<int>(midiComboItems.size()))) {
+            const std::string selectedPort = (midiSelected <= 0 || midiSelected > static_cast<int>(midiPorts.size()))
+                ? std::string{}
+                : midiPorts[static_cast<std::size_t>(midiSelected - 1)];
+            if (handlers_.onMidiPortChange) handlers_.onMidiPortChange(selectedPort);
+        }
+
+        std::vector<std::string> audioComboStorage;
+        std::vector<const char*> audioComboItems;
+        makeComboItems("Default output", audioDevices, audioComboStorage, audioComboItems);
+        int audioSelected = indexFromValue(audioDevices, cfg.audioDevice);
+        if (ImGui::Combo("Audio Output", &audioSelected, audioComboItems.data(), static_cast<int>(audioComboItems.size()))) {
+            const std::string selectedDevice = (audioSelected <= 0 || audioSelected > static_cast<int>(audioDevices.size()))
+                ? std::string{}
+                : audioDevices[static_cast<std::size_t>(audioSelected - 1)];
+            if (handlers_.onAudioDeviceChange) handlers_.onAudioDeviceChange(selectedDevice);
         }
 
         bool learn = midiLearnMode;

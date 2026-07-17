@@ -3,6 +3,8 @@ name: Build Windows EXE
 on:
   push:
     branches: ["master"]
+  pull_request:
+    branches: ["master"]
   release:
     types: [published]
   workflow_dispatch:
@@ -132,15 +134,18 @@ jobs:
         shell: msys2 {0}
         run: |
           set -e
-          VERSION="${GITHUB_REF_NAME:-manual}"
+          VERSION="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-manual}}"
+          VERSION="${VERSION//\//-}"
           ZIP_NAME="xpad-link-windows-${VERSION}.zip"
+          ARTIFACT_NAME="xpad-link-windows-${VERSION}-raw"
           tar -a -cf "$ZIP_NAME" -C dist .
           echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
+          echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> "$GITHUB_ENV"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: xpad-link-windows-${{ github.ref_name }}-raw
+          name: ${{ env.ARTIFACT_NAME }}
           path: dist/
 
       - name: Attach artifact to release

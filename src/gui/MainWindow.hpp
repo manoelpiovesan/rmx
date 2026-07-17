@@ -19,6 +19,8 @@ struct GuiHandlers {
     std::function<void(float amount)>               onFilterChange;
     std::function<void(int sampleIndex)>            onSampleSelectionChange;
     std::function<void(int rulerIndex)>             onRulerChange;
+    std::function<void(const std::string& portName)> onMidiPortChange;
+    std::function<void(const std::string& deviceName)> onAudioDeviceChange;
     std::function<void(bool enabled)>               onSetMidiLearnMode;
     std::function<void(const std::string& control)> onBeginMidiLearn;
     std::function<std::pair<std::string, std::string>()> onGetMidiStatus;
